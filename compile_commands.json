@@ -1,0 +1,19 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-std=c23",
+      "-Wall",
+      "-Wextra",
+      "-Iinc",
+      "-O2",
+      "-o",
+      "bin/chip-8",
+      "src/main.c"
+    ],
+    "directory": "/home/janfors/dev/chip-8",
+    "file": "/home/janfors/dev/chip-8/src/main.c",
+    "output": "/home/janfors/dev/chip-8/bin/chip-8"
+  }
+]
