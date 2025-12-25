@@ -9,7 +9,8 @@ const int pixelScale = 16;
 
 int main() {
   Renderer *renderer = malloc(sizeof(Renderer));
-  renderer = rendererInit(renderer, "CHIP-8", 64 * pixelScale, 32 * pixelScale);
+  renderer = rendererInit(renderer, "CHIP-8", 64 * pixelScale, 32 * pixelScale,
+                          pixelScale);
   if (!renderer) {
     fprintf(stderr, "Failed initializing SDL2");
     return -1;
@@ -32,6 +33,7 @@ int main() {
       }
     }
 
+    drawFromDisplay(renderer, emu.display);
     render(renderer);
   }
 

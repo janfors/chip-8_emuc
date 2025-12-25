@@ -1,6 +1,7 @@
 #include <emulator.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 const u32 ram_size = 4096; // 4kB
 
@@ -12,11 +13,13 @@ static void insertFontChar(u8 *ram_start, u32 offset, u8 fontBytes[5]) {
 }
 
 int initEmulator(Emulator *emu) {
-  emu->ram = malloc(ram_size);
+  emu->ram = calloc(ram_size, sizeof(u32));
   if (!emu->ram) {
     fprintf(stderr, "Failed allocation for the CHIP-8 RAM\n");
     return -1;
   }
+
+  memset(emu->display, 0, sizeof(u64) * 32);
 
   insertFontChar(emu->ram, 0, (u8[5]){0xF0, 0x90, 0x90, 0x90, 0xF0});  // 0
   insertFontChar(emu->ram, 5, (u8[5]){0x20, 0x60, 0x20, 0x20, 0x70});  // 1

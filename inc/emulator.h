@@ -11,6 +11,9 @@ typedef struct {
   u8 delay_timer;
   u8 sound_timer;
 
+  // 64x32 monochrome (each bit is a pixel)
+  u64 display[32];
+
   u8 V0;
   u8 V1;
   u8 V2;
