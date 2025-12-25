@@ -1,7 +1,11 @@
 #include <emulator.h>
+#include <sound.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// not even gonna comment on how clean this codebase is...
+#include <SDL2/SDL.h>
 
 const u32 ram_size = 4096; // 4kB
 
@@ -10,6 +14,37 @@ static void insertFontChar(u8 *ram_start, u32 offset, u8 fontBytes[5]) {
   for (int i = 0; i < 5; i++) {
     *(ram_start + 0x50 + offset + i) = fontBytes[i];
   }
+}
+
+static Sound beep;
+
+static bool push(Emulator *emu, u16 *val) {
+  if (emu->sp + 1 > 10) {
+    fprintf(stderr, "STACK OVERFLOW\n");
+    return false;
+  }
+  emu->stack[++emu->sp] = val;
+  return true;
+}
+
+static u16 *pop(Emulator *emu) {
+  if (emu->sp == 0)
+    return 0; // not sure about the handling of this but eh
+  return emu->stack[emu->sp--];
+}
+
+// TODO:
+// this maybe should be a callback within the renderer
+static Uint32 updateTimer(Uint32 interval, void *emuPtr) {
+  Emulator *emu = (Emulator *)emuPtr;
+  emu->delayTimer--;
+  emu->soundTimer--;
+
+  if (emu->soundTimer > 0) {
+    playSound(&beep);
+  }
+
+  return interval;
 }
 
 int initEmulator(Emulator *emu) {
@@ -39,10 +74,10 @@ int initEmulator(Emulator *emu) {
   insertFontChar(emu->ram, 75, (u8[5]){0xF0, 0x80, 0xF0, 0x80, 0x80}); // F
 
   emu->pc = 0;
+  emu->sp = 0;
   emu->ri = (u16 *)emu->ram + 0x50;
-  // Not sure about the stack implementation yet
-  emu->delay_timer = 0xFF;
-  emu->sound_timer = 0xFF;
+  emu->delayTimer = 0xFF;
+  emu->soundTimer = 0xFF;
 
   emu->V0 = 0;
   emu->V1 = 0;
@@ -61,5 +96,26 @@ int initEmulator(Emulator *emu) {
   emu->VE = 0;
   emu->VF = 0;
 
+  emu->shouldRedraw = false;
+
+  emu->sdlTimer = SDL_AddTimer(1000 / 60, updateTimer, (void *)emu);
+
+  loadWAV("beep.wav", &beep);
+
   return 0;
+}
+
+void destroyEmulator(Emulator *emu) {
+  free(emu->ram);
+  SDL_RemoveTimer(emu->sdlTimer);
+
+  unloadSound(&beep);
+}
+
+void runEmulator(Emulator *emu) {
+  emu->shouldRedraw = false;
+  // only set the shouldRedraw to true when an operation that changes the
+  // display occurs?
+
+  emu->shouldRedraw = true;
 }

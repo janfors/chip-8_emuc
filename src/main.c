@@ -22,7 +22,8 @@ int main() {
     return -1;
   }
 
-  emu.display[0] = 1UL << 63;
+  emu.display[1] = (u64)1 << 60;
+  emu.display[1] |= (u64)1 << 61;
 
   bool running = true;
   while (running) {
@@ -33,8 +34,16 @@ int main() {
       }
     }
 
-    drawFromDisplay(renderer, emu.display);
-    render(renderer);
+    runEmulator(&emu);
+
+    if (emu.shouldRedraw) {
+      drawFromDisplay(renderer, emu.display);
+      render(renderer);
+    } else {
+      // hacky much? (It's an optimization????)
+      // I mean if it works it works...
+      SDL_RenderPresent(renderer->renderer);
+    }
   }
 
   rendererDeinit(renderer);

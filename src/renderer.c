@@ -87,7 +87,7 @@ void drawFromDisplay(Renderer *r, u64 display[32]) {
 
   for (u32 line = 0; line < 32; line++) {
     for (u32 i = 0; i < 64; i++) {
-      if ((display[line] & (1UL << (63 - i))) != 0) {
+      if ((display[line] & ((u64)1 << (63 - i))) != 0) {
         drawPixel(r, i, line);
       }
     }
