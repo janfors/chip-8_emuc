@@ -22,7 +22,7 @@ int main() {
     return -1;
   }
 
-  printf("0x%X\n", emu.ram[0x9F]);
+  emu.display[0] = 1UL << 63;
 
   bool running = true;
   while (running) {

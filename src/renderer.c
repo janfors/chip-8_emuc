@@ -86,9 +86,8 @@ void drawFromDisplay(Renderer *r, u64 display[32]) {
   memset(r->pixels, COLOR_BLACK, sizeof(u32) * r->width * r->height);
 
   for (u32 line = 0; line < 32; line++) {
-    printf("%lb\n", display[line]);
     for (u32 i = 0; i < 64; i++) {
-      if ((display[line] & (1 << i)) == 1) {
+      if ((display[line] & (1UL << (63 - i))) != 0) {
         drawPixel(r, i, line);
       }
     }
