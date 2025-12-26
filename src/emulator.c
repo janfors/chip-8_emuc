@@ -18,7 +18,7 @@ static void insertFontChar(u8 *ram_start, u32 offset, u8 fontBytes[5]) {
 
 static Sound beep;
 
-static bool push(Emulator *emu, u16 *val) {
+static bool push(Emulator *emu, u16 val) {
   if (emu->sp + 1 > 10) {
     fprintf(stderr, "STACK OVERFLOW\n");
     return false;
@@ -27,7 +27,7 @@ static bool push(Emulator *emu, u16 *val) {
   return true;
 }
 
-static u16 *pop(Emulator *emu) {
+static u16 pop(Emulator *emu) {
   if (emu->sp == 0)
     return 0; // not sure about the handling of this but eh
   return emu->stack[emu->sp--];
@@ -75,28 +75,28 @@ int initEmulator(Emulator *emu) {
 
   emu->pc = 0;
   emu->sp = 0;
-  emu->ri = (u16 *)emu->ram + 0x50;
+  emu->ri = 0x50;
   emu->delayTimer = 0xFF;
   emu->soundTimer = 0xFF;
 
-  emu->V0 = 0;
-  emu->V1 = 0;
-  emu->V2 = 0;
-  emu->V3 = 0;
-  emu->V4 = 0;
-  emu->V5 = 0;
-  emu->V6 = 0;
-  emu->V7 = 0;
-  emu->V8 = 0;
-  emu->V9 = 0;
-  emu->VA = 0;
-  emu->VB = 0;
-  emu->VC = 0;
-  emu->VD = 0;
-  emu->VE = 0;
-  emu->VF = 0;
+  // emu->V0 = 0;
+  // emu->V1 = 0;
+  // emu->V2 = 0;
+  // emu->V3 = 0;
+  // emu->V4 = 0;
+  // emu->V5 = 0;
+  // emu->V6 = 0;
+  // emu->V7 = 0;
+  // emu->V8 = 0;
+  // emu->V9 = 0;
+  // emu->VA = 0;
+  // emu->VB = 0;
+  // emu->VC = 0;
+  // emu->VD = 0;
+  // emu->VE = 0;
+  // emu->VF = 0;
 
-  emu->shouldRedraw = false;
+  // emu->shouldRedraw = false;
 
   emu->sdlTimer = SDL_AddTimer(1000 / 60, updateTimer, (void *)emu);
 
@@ -112,10 +112,82 @@ void destroyEmulator(Emulator *emu) {
   unloadSound(&beep);
 }
 
-void runEmulator(Emulator *emu) {
-  emu->shouldRedraw = false;
-  // only set the shouldRedraw to true when an operation that changes the
-  // display occurs?
+void loadROM(Emulator *emu, const char *romPath) {
+  FILE *romd = fopen(romPath, "r");
+  if (!romd) {
+    fprintf(stderr, "Could not read ROM with path: %s\n", romPath);
+    return;
+  }
 
-  emu->shouldRedraw = true;
+  emu->pc = 0x200; // start of program data
+
+  fseek(romd, 0, SEEK_END);
+  u64 romSize = ftell(romd);
+  fseek(romd, 0, SEEK_SET);
+
+  if (fread(emu->ram + emu->pc, sizeof(u8), romSize, romd) != romSize) {
+    fprintf(stderr, "Failure when reading ROM: %s\n", romPath);
+    return;
+  }
+
+  fclose(romd);
 }
+
+static void runProgram(Emulator *emu) {
+  if (emu->pc == ram_size)
+    return;
+  const u8 byte1 = emu->ram[emu->pc];
+  const u8 byte2 = emu->ram[emu->pc + 1];
+
+  const u8 nib1 = byte1 & 0xF;
+  const u8 nib2 = (byte1 & 0xF0) >> 4;
+  const u8 nib3 = byte2 & 0xF;
+  const u8 nib4 = (byte2 & 0xF0) >> 4;
+
+  const u8 opPcAddr = (nib2 << 8) | (nib3 << 4) | nib4;
+  const u8 value = (nib3 << 4) | nib4;
+
+  switch (nib1) {
+  case 0x0:
+    switch (nib2) {
+    case 0x0:
+      switch (nib3) {
+      case 0xE:
+        switch (nib4) {
+        case 0xE: // 0x00EE return from subroutine
+          emu->pc = pop(emu);
+          break;
+        case 0x0: // 0x00E0 clear screen
+          memset(emu->display, 0, sizeof(u64) * 32);
+          break;
+        }
+        break;
+      }
+      break;
+    }
+    break;
+
+  case 0x1: // jmp
+    emu->pc = opPcAddr;
+    return;
+  case 0x2: // subroutine call
+    push(emu, emu->pc);
+    emu->pc = opPcAddr;
+    break;
+  case 0x6:
+    emu->registers[nib2] = value;
+    break;
+  case 0x7:
+    emu->registers[nib2] += value;
+    break;
+  case 0xA:
+    emu->ri = value;
+    break;
+  }
+
+  printf("0x%X\n", emu->pc);
+
+  emu->pc += 2;
+}
+
+void runEmulator(Emulator *emu) { runProgram(emu); }

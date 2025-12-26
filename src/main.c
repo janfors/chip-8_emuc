@@ -23,7 +23,10 @@ int main() {
     return -1;
   }
 
+  emu.display[0] = (u64)1 << 63;
+
   InputKeys keys;
+  loadROM(&emu, "2-ibm-logo.ch8");
 
   bool running = true;
   while (running) {
@@ -38,14 +41,14 @@ int main() {
 
     runEmulator(&emu);
 
-    if (emu.shouldRedraw) {
-      drawFromDisplay(renderer, emu.display);
-      render(renderer);
-    } else {
-      // hacky much? (It's an optimization????)
-      // I mean if it works it works...
-      SDL_RenderPresent(renderer->renderer);
-    }
+    // if (emu.shouldRedraw) {
+    drawFromDisplay(renderer, emu.display);
+    render(renderer);
+    // } else {
+    // hacky much? (It's an optimization????)
+    // I mean if it works it works...
+    // SDL_RenderPresent(renderer->renderer);
+    // }
   }
 
   destroyEmulator(&emu);
