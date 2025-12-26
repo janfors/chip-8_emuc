@@ -38,6 +38,7 @@ typedef struct {
 } Emulator;
 
 int initEmulator(Emulator *emu);
+void destroyEmulator(Emulator *emu);
 
 void runEmulator(Emulator *emu);
 

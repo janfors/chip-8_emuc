@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <emulator.h>
+#include <input.h>
 #include <renderer.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,13 +23,14 @@ int main() {
     return -1;
   }
 
-  emu.display[1] = (u64)1 << 60;
-  emu.display[1] |= (u64)1 << 61;
+  InputKeys keys;
 
   bool running = true;
   while (running) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
+      updateKeys(&keys, e);
+
       if (e.type == SDL_QUIT) {
         running = false;
       }
@@ -46,6 +48,7 @@ int main() {
     }
   }
 
+  destroyEmulator(&emu);
   rendererDeinit(renderer);
 
   return 0;
