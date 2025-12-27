@@ -133,18 +133,48 @@ void loadROM(Emulator *emu, const char *romPath) {
   fclose(romd);
 }
 
+static void drawSprite(Emulator *emu, u8 x, u8 y, u8 height) {
+  y = y % 32;
+  x = x % 64;
+
+  u8 *spriteData = &emu->ram[emu->ri];
+  bool regFlag = false;
+
+  for (; y < y + height; y++) {
+    u8 row = (emu->display[y] >> (63 - x));
+    u8 newRow = 0;
+
+    for (int i = 0; i < 8; i++) {
+      newRow |= (row & (1 << i)) ^ (*spriteData & (1 << i));
+
+      // this is bad...
+      if (((newRow & (1 << i)) == 0) && ((row & (1 << i)) == 1)) {
+        emu->registers[0xF] = 1;
+        regFlag = true;
+      }
+    }
+
+    spriteData++;
+  }
+
+  if (!regFlag)
+    emu->registers[0xF] = 0;
+}
+
 static void runProgram(Emulator *emu) {
   if (emu->pc == ram_size)
     return;
   const u8 byte1 = emu->ram[emu->pc];
   const u8 byte2 = emu->ram[emu->pc + 1];
 
-  const u8 nib1 = byte1 & 0xF;
-  const u8 nib2 = (byte1 & 0xF0) >> 4;
-  const u8 nib3 = byte2 & 0xF;
-  const u8 nib4 = (byte2 & 0xF0) >> 4;
+  const u8 nib1 = (byte1 & 0xF0) >> 4;
+  const u8 nib2 = byte1 & 0xF;
+  const u8 nib3 = (byte2 & 0xF0) >> 4;
+  const u8 nib4 = byte2 & 0xF;
 
-  const u8 opPcAddr = (nib2 << 8) | (nib3 << 4) | nib4;
+  printf("%X%X %X%X\n", nib1, nib2, nib3, nib4);
+
+  const u16 opPcAddr = (nib2 << 8) | (nib3 << 4) | nib4;
   const u8 value = (nib3 << 4) | nib4;
 
   switch (nib1) {
@@ -169,23 +199,23 @@ static void runProgram(Emulator *emu) {
 
   case 0x1: // jmp
     emu->pc = opPcAddr;
+    printf("Jumping to 0x%X\n", emu->pc);
     return;
   case 0x2: // subroutine call
     push(emu, emu->pc);
     emu->pc = opPcAddr;
-    break;
-  case 0x6:
+    return;
+  case 0x6: // set register
     emu->registers[nib2] = value;
     break;
-  case 0x7:
+  case 0x7: // add to register
     emu->registers[nib2] += value;
     break;
-  case 0xA:
-    emu->ri = value;
+  case 0xA: // set I register
+    emu->ri = opPcAddr;
     break;
+  case 0xD:
   }
-
-  printf("0x%X\n", emu->pc);
 
   emu->pc += 2;
 }
