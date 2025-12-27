@@ -134,31 +134,23 @@ void loadROM(Emulator *emu, const char *romPath) {
 }
 
 static void drawSprite(Emulator *emu, u8 x, u8 y, u8 height) {
-  y = y % 32;
-  x = x % 64;
-
   u8 *spriteData = &emu->ram[emu->ri];
-  bool regFlag = false;
 
-  for (; y < y + height; y++) {
-    u8 row = (emu->display[y] >> (63 - x));
-    u8 newRow = 0;
+  x = x % 64;
+  y = y % 32;
 
-    for (int i = 0; i < 8; i++) {
-      newRow |= (row & (1 << i)) ^ (*spriteData & (1 << i));
+  for (u8 row = 0; row < height; row++) {
+    u8 screenY = (y + row) % 32;
 
-      // this is bad...
-      if (((newRow & (1 << i)) == 0) && ((row & (1 << i)) == 1)) {
-        emu->registers[0xF] = 1;
-        regFlag = true;
-      }
-    }
+    u64 mask = ((u64)*spriteData) << (64 - 8 - x);
+
+    if (emu->display[y] & mask)
+      emu->registers[0xF] = 1;
+
+    emu->display[screenY] ^= mask;
 
     spriteData++;
   }
-
-  if (!regFlag)
-    emu->registers[0xF] = 0;
 }
 
 static void runProgram(Emulator *emu) {
@@ -215,6 +207,12 @@ static void runProgram(Emulator *emu) {
     emu->ri = opPcAddr;
     break;
   case 0xD:
+    u8 x = emu->registers[nib2];
+    u8 y = emu->registers[nib3];
+    u8 n = nib4;
+
+    drawSprite(emu, x, y, n);
+    break;
   }
 
   emu->pc += 2;
