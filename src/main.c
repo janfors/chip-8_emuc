@@ -25,14 +25,17 @@ int main() {
 
   emu.display[0] = (u64)1 << 63;
 
-  InputKeys keys;
   loadROM(&emu, "2-ibm-logo.ch8");
+
+  // TODO: depending on user config toggle these
+  emu.shiftCopiesVX = true;
+  emu.offsetjmpUsesVX = true;
 
   bool running = true;
   while (running) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
-      updateKeys(&keys, e);
+      updateKeys(e);
 
       if (e.type == SDL_QUIT) {
         running = false;

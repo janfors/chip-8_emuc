@@ -2,6 +2,7 @@
 #define __EMULATOR_H
 
 #include <SDL2/SDL.h>
+#include <input.h>
 #include <util.h>
 
 typedef struct {
@@ -18,25 +19,11 @@ typedef struct {
 
   u8 registers[16];
 
-  // u8 V0;
-  // u8 V1;
-  // u8 V2;
-  // u8 V3;
-  // u8 V4;
-  // u8 V5;
-  // u8 V6;
-  // u8 V7;
-  // u8 V8;
-  // u8 V9;
-  // u8 VA;
-  // u8 VB;
-  // u8 VC;
-  // u8 VD;
-  // u8 VE;
-  // u8 VF; // flag register
-
   // bool shouldRedraw;
   SDL_TimerID sdlTimer;
+
+  bool shiftCopiesVX;
+  bool offsetjmpUsesVX;
 } Emulator;
 
 int initEmulator(Emulator *emu);

@@ -3,11 +3,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // not even gonna comment on how clean this codebase is...
 #include <SDL2/SDL.h>
 
 const u32 ram_size = 4096; // 4kB
+
+extern bool InputKeys[16];
 
 // because of some convention font data is 0x50-0x9F
 static void insertFontChar(u8 *ram_start, u32 offset, u8 fontBytes[5]) {
@@ -79,28 +82,11 @@ int initEmulator(Emulator *emu) {
   emu->delayTimer = 0xFF;
   emu->soundTimer = 0xFF;
 
-  // emu->V0 = 0;
-  // emu->V1 = 0;
-  // emu->V2 = 0;
-  // emu->V3 = 0;
-  // emu->V4 = 0;
-  // emu->V5 = 0;
-  // emu->V6 = 0;
-  // emu->V7 = 0;
-  // emu->V8 = 0;
-  // emu->V9 = 0;
-  // emu->VA = 0;
-  // emu->VB = 0;
-  // emu->VC = 0;
-  // emu->VD = 0;
-  // emu->VE = 0;
-  // emu->VF = 0;
-
-  // emu->shouldRedraw = false;
-
   emu->sdlTimer = SDL_AddTimer(1000 / 60, updateTimer, (void *)emu);
 
   loadWAV("beep.wav", &beep);
+
+  srand(time(NULL));
 
   return 0;
 }
@@ -164,7 +150,7 @@ static void runProgram(Emulator *emu) {
   const u8 nib3 = (byte2 & 0xF0) >> 4;
   const u8 nib4 = byte2 & 0xF;
 
-  printf("%X%X %X%X\n", nib1, nib2, nib3, nib4);
+  printf("%X%X %X%X", nib1, nib2, nib3, nib4);
 
   const u16 opPcAddr = (nib2 << 8) | (nib3 << 4) | nib4;
   const u8 value = (nib3 << 4) | nib4;
@@ -191,29 +177,155 @@ static void runProgram(Emulator *emu) {
 
   case 0x1: // jmp
     emu->pc = opPcAddr;
-    printf("Jumping to 0x%X\n", emu->pc);
+    printf(" jumping to 0x%X\n", emu->pc);
     return;
   case 0x2: // subroutine call
     push(emu, emu->pc);
     emu->pc = opPcAddr;
     return;
+  case 0x3: // skip if VX == NN
+    if (emu->registers[nib2] == value)
+      emu->pc += 2;
+    break;
+  case 0x4: // skip if VX != NN
+    if (emu->registers[nib2] != value)
+      emu->pc += 2;
+    break;
+  case 0x5: // skip if VX == VY
+    if (emu->registers[nib2] == emu->registers[nib3])
+      emu->pc += 2;
+    break;
   case 0x6: // set register
     emu->registers[nib2] = value;
     break;
   case 0x7: // add to register
     emu->registers[nib2] += value;
     break;
+  case 0x8: // arithmetic operations
+    switch (nib4) {
+    case 0x0: // VX = VY
+      emu->registers[nib2] = emu->registers[nib3];
+      break;
+    case 0x1: // binary OR of VX and VY -> VX
+      emu->registers[nib2] |= emu->registers[nib3];
+      break;
+    case 0x2: // binary AND of VX and VY -> VX
+      emu->registers[nib2] &= emu->registers[nib3];
+      break;
+    case 0x3: // logical XOR of VX and VY -> VX
+      emu->registers[nib2] ^= emu->registers[nib3];
+      break;
+    case 0x4: // VY += VX
+      emu->registers[nib2] += emu->registers[nib3];
+      break;
+    case 0x5: // VX -= VY
+      emu->registers[0xF] = 0;
+      if (emu->registers[nib2] > emu->registers[nib3])
+        emu->registers[0xF] = 1;
+
+      emu->registers[nib2] -= emu->registers[nib3];
+      break;
+    case 0x6: // VX ?= VY -> VX >> 1
+      if (emu->shiftCopiesVX)
+        emu->registers[nib2] = emu->registers[nib3];
+
+      emu->registers[0xF] = emu->registers[nib2] & 0xFE;
+      emu->registers[nib2] = emu->registers[nib2] >> 1;
+      break;
+    case 0x8: // VX ?= VY -> VX << 1
+      if (emu->shiftCopiesVX)
+        emu->registers[nib2] = emu->registers[nib3];
+
+      emu->registers[0xF] = emu->registers[nib2] & 0xFE;
+      emu->registers[nib2] = emu->registers[nib2] >> 1;
+      break;
+    case 0x7: // VX = VY - VX
+      emu->registers[0xF] = 0;
+      if (emu->registers[nib3] > emu->registers[nib2])
+        emu->registers[0xF] = 1;
+
+      emu->registers[nib2] = emu->registers[nib3] - emu->registers[nib2];
+      break;
+    }
+    break;
+  case 0x9: // skip if VX != VY
+    if (emu->registers[nib2] != emu->registers[nib3])
+      emu->pc += 2;
+    break;
   case 0xA: // set I register
     emu->ri = opPcAddr;
     break;
-  case 0xD:
+  case 0xB: // jmp with offset
+    if (emu->offsetjmpUsesVX) {
+      emu->pc = emu->registers[nib2] + value;
+    } else {
+      emu->pc = emu->registers[0x0] + opPcAddr;
+    }
+    return;
+  case 0xC:        // VX = rand & NN
+    u8 r = rand(); // should be fine ig
+    emu->registers[nib2] = r & value;
+    break;
+  case 0xD: // draw at X and Y with height N
     u8 x = emu->registers[nib2];
     u8 y = emu->registers[nib3];
     u8 n = nib4;
 
     drawSprite(emu, x, y, n);
     break;
+  case 0xE:
+    switch (nib3) {
+    case 0x9: // skip if key of VX is pressed
+      if (InputKeys[emu->registers[nib2]])
+        emu->pc += 2;
+      break;
+    case 0xA: // skip if key of VX is not pressed
+      if (!InputKeys[emu->registers[nib2]])
+        emu->pc += 2;
+      break;
+    }
+    break;
+  case 0xF:
+    switch (nib3) {
+    case 0x0:
+      switch (nib4) {
+      case 0x7: // VX = delayTimer
+        emu->registers[nib2] = emu->delayTimer;
+        break;
+      case 0xA: // waits for key if presesd put it in VX
+        int key = getAnyKey();
+        if (key == -1)
+          return;
+
+        emu->registers[nib2] = (u8)key;
+        break;
+      }
+      break;
+    case 0x1:
+      switch (nib4) {
+      case 0x5: // delayTimer = VX
+        emu->delayTimer = emu->registers[nib2];
+        break;
+      case 0x8: // soundTimer = VX
+        emu->soundTimer = emu->registers[nib2];
+        break;
+      case 0xE: // add to index reg
+        emu->ri += emu->registers[nib2];
+        break;
+      }
+      break;
+    case 0x2:
+      switch (nib4) {
+      case 0x9: // ri = char corresponding to VX
+        emu->ri = 0x50 + emu->registers[nib2] * 5;
+        break;
+      }
+      break;
+    }
+    break;
   }
+
+  printf("\n");
 
   emu->pc += 2;
 }
