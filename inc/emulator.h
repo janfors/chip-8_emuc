@@ -29,7 +29,7 @@ typedef struct {
 int initEmulator(Emulator *emu);
 void destroyEmulator(Emulator *emu);
 
-void loadROM(Emulator *emu, const char *romPath);
+bool loadROM(Emulator *emu, const char *romPath);
 
 void runEmulator(Emulator *emu);
 

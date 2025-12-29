@@ -98,11 +98,11 @@ void destroyEmulator(Emulator *emu) {
   unloadSound(&beep);
 }
 
-void loadROM(Emulator *emu, const char *romPath) {
+bool loadROM(Emulator *emu, const char *romPath) {
   FILE *romd = fopen(romPath, "r");
   if (!romd) {
     fprintf(stderr, "Could not read ROM with path: %s\n", romPath);
-    return;
+    return false;
   }
 
   emu->pc = 0x200; // start of program data
@@ -113,10 +113,11 @@ void loadROM(Emulator *emu, const char *romPath) {
 
   if (fread(emu->ram + emu->pc, sizeof(u8), romSize, romd) != romSize) {
     fprintf(stderr, "Failure when reading ROM: %s\n", romPath);
-    return;
+    return false;
   }
 
   fclose(romd);
+  return true;
 }
 
 static void drawSprite(Emulator *emu, u8 x, u8 y, u8 height) {
@@ -150,7 +151,9 @@ static void runProgram(Emulator *emu) {
   const u8 nib3 = (byte2 & 0xF0) >> 4;
   const u8 nib4 = byte2 & 0xF;
 
-  printf("%X%X %X%X", nib1, nib2, nib3, nib4);
+#ifdef DEBUG
+  printf("%X%X %X%X\n", nib1, nib2, nib3, nib4);
+#endif
 
   const u16 opPcAddr = (nib2 << 8) | (nib3 << 4) | nib4;
   const u8 value = (nib3 << 4) | nib4;
@@ -177,7 +180,9 @@ static void runProgram(Emulator *emu) {
 
   case 0x1: // jmp
     emu->pc = opPcAddr;
+#ifdef DEBUG
     printf(" jumping to 0x%X\n", emu->pc);
+#endif
     return;
   case 0x2: // subroutine call
     push(emu, emu->pc);
@@ -321,13 +326,45 @@ static void runProgram(Emulator *emu) {
         break;
       }
       break;
+    case 0x3:
+      switch (nib4) {
+      case 0x3: // store VX as decimal at ri
+        emu->ram[emu->ri] = emu->registers[nib2] / 100;
+        emu->ram[emu->ri + 1] = (emu->registers[nib2] / 10) % 10;
+        emu->ram[emu->ri + 2] = emu->registers[nib2] % 10;
+        break;
+      }
+      break;
+    case 0x5:
+      switch (nib4) {
+      case 0x5: // store all registers at ri
+        for (u16 i = 0; i < 0x10; i++) {
+          emu->ram[emu->ri + i] = emu->registers[i];
+        }
+        break;
+      }
+      break;
+    case 0x6:
+      switch (nib4) {
+      case 0x5: // load registers from memory at ri
+        for (u16 i = 0; i < 0x10; i++) {
+          emu->registers[i] = emu->ram[emu->ri + i];
+        }
+        break;
+      }
+      break;
     }
-    break;
   }
-
-  printf("\n");
 
   emu->pc += 2;
 }
 
-void runEmulator(Emulator *emu) { runProgram(emu); }
+void runEmulator(Emulator *emu) {
+#ifdef DEBUG
+  // TODO: depending on user input:
+  //  - step
+  //  - display registers
+  //  - inspect memory at addr
+#endif
+  runProgram(emu);
+}
