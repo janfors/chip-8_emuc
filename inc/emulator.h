@@ -26,6 +26,11 @@ typedef struct {
   bool offsetjmpUsesVX;
 } Emulator;
 
+typedef struct {
+  bool stepping;
+  u16 breakAddr;
+} DebugState;
+
 int initEmulator(Emulator *emu);
 void destroyEmulator(Emulator *emu);
 

@@ -12,6 +12,8 @@ const u32 ram_size = 4096; // 4kB
 
 extern bool InputKeys[16];
 
+static DebugState debugState;
+
 // because of some convention font data is 0x50-0x9F
 static void insertFontChar(u8 *ram_start, u32 offset, u8 fontBytes[5]) {
   for (int i = 0; i < 5; i++) {
@@ -88,6 +90,11 @@ int initEmulator(Emulator *emu) {
 
   srand(time(NULL));
 
+#ifdef DEBUG
+  debugState.stepping = true;
+  debugState.breakAddr = 0x0;
+#endif
+
   return 0;
 }
 
@@ -109,11 +116,19 @@ bool loadROM(Emulator *emu, const char *romPath) {
 
   fseek(romd, 0, SEEK_END);
   u64 romSize = ftell(romd);
+
+  if (romSize > ram_size) {
+    fprintf(stderr, "WARNING: ROM size exceeds ram size of %d", ram_size);
+    fclose(romd);
+    return false;
+  }
+
   fseek(romd, 0, SEEK_SET);
 
   if (fread(emu->ram + emu->pc, sizeof(u8), romSize, romd) != romSize) {
     fprintf(stderr, "Failure when reading ROM: %s\n", romPath);
-    return false;
+    // fclose(romd);
+    // return false;
   }
 
   fclose(romd);
@@ -140,7 +155,7 @@ static void drawSprite(Emulator *emu, u8 x, u8 y, u8 height) {
   }
 }
 
-static void runProgram(Emulator *emu) {
+static void step(Emulator *emu) {
   if (emu->pc == ram_size)
     return;
   const u8 byte1 = emu->ram[emu->pc];
@@ -152,7 +167,7 @@ static void runProgram(Emulator *emu) {
   const u8 nib4 = byte2 & 0xF;
 
 #ifdef DEBUG
-  printf("%X%X %X%X\n", nib1, nib2, nib3, nib4);
+  printf("op: %X%X %X%X\n", nib1, nib2, nib3, nib4);
 #endif
 
   const u16 opPcAddr = (nib2 << 8) | (nib3 << 4) | nib4;
@@ -359,12 +374,71 @@ static void runProgram(Emulator *emu) {
   emu->pc += 2;
 }
 
+static u16 getStdinAddr() {
+  u32 val;
+
+  printf("Enter address -> ");
+  if (scanf("0x%x", &val) != 1) {
+    printf("Invalid input format should be 0x...\n");
+    return ram_size + 1;
+  }
+
+  if (val > ram_size) {
+    printf("Memory address exceeds ram space of: 0x%X", ram_size);
+    return ram_size + 1;
+  }
+
+  return (u16)val;
+}
+
+// TODO: clean this mess up, also
+// FIXME:
 void runEmulator(Emulator *emu) {
 #ifdef DEBUG
-  // TODO: depending on user input:
-  //  - step
-  //  - display registers
-  //  - inspect memory at addr
+  if (debugState.stepping) {
+    printf("(h)elp -> ");
+    char in = getchar();
+
+    switch (in) {
+    case 'h':
+      printf("(s)tep (r)egisters (m)emory (b)reak (q)uit (a)allinfo\n");
+      return;
+    case 's':
+      break;
+    case 'r':
+      for (u8 i = 0; i < 0x10; i++) {
+        printf("V%d: 0x%X\n", i, emu->registers[i]);
+      }
+      return;
+    case 'm':
+      u16 startAddr = getStdinAddr();
+      if (startAddr == ram_size + 1)
+        return;
+      for (int i = 0; i < 40; i++) {
+        if (i % 10 == 0) {
+          printf("\n0x%04X|\t", emu->pc + i + startAddr);
+        }
+
+        printf("%02X ", emu->ram[emu->pc + i + startAddr]);
+      }
+      printf("\n");
+      return;
+    case 'b':
+      u16 b = getStdinAddr();
+      if (b == ram_size + 1)
+        return;
+      debugState.breakAddr = b;
+      debugState.stepping = false;
+      break;
+    case 'q':
+      // TODO: quit the application
+      break;
+    default:
+      return;
+    }
+  } else if (emu->pc >= debugState.breakAddr) {
+    debugState.stepping = true;
+  }
 #endif
-  runProgram(emu);
+  step(emu);
 }
