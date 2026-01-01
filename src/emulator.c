@@ -12,7 +12,9 @@ const u32 ram_size = 4096; // 4kB
 
 extern bool InputKeys[16];
 
+#ifdef DEBUG
 static DebugState debugState;
+#endif
 
 // because of some convention font data is 0x50-0x9F
 static void insertFontChar(u8 *ram_start, u32 offset, u8 fontBytes[5]) {
@@ -400,11 +402,14 @@ bool runEmulator(Emulator *emu) {
   if (debugState.stepping) {
     printf("(h)elp -> ");
     char in = getchar();
-    getc(stdin);
+
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) {
+    }
 
     switch (in) {
     case 'h':
-      printf("(s)tep (r)egisters (m)emory (b)reak (q)uit\n");
+      printf("(s)tep (r)egisters (m)emory (b)reak (c)ontinue (q)uitn");
       return true;
     case 's':
       break;
@@ -432,6 +437,10 @@ bool runEmulator(Emulator *emu) {
         return true;
       debugState.breakAddr = b;
       debugState.stepping = false;
+      break;
+    case 'c':
+      debugState.stepping = false;
+      debugState.breakAddr = ram_size + 1;
       break;
     case 'q':
       return false;
