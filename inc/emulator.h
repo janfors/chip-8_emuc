@@ -36,6 +36,6 @@ void destroyEmulator(Emulator *emu);
 
 bool loadROM(Emulator *emu, const char *romPath);
 
-void runEmulator(Emulator *emu);
+bool runEmulator(Emulator *emu);
 
 #endif // !__EMULATOR_H

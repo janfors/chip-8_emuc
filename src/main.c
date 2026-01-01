@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    runEmulator(&emu);
+    running = runEmulator(&emu);
 
     drawFromDisplay(renderer, emu.display);
     render(renderer);

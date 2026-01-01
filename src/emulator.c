@@ -167,7 +167,7 @@ static void step(Emulator *emu) {
   const u8 nib4 = byte2 & 0xF;
 
 #ifdef DEBUG
-  printf("op: %X%X %X%X\n", nib1, nib2, nib3, nib4);
+  printf("0x%X: %X%X %X%X\n", emu->pc, nib1, nib2, nib3, nib4);
 #endif
 
   const u16 opPcAddr = (nib2 << 8) | (nib3 << 4) | nib4;
@@ -391,54 +391,53 @@ static u16 getStdinAddr() {
   return (u16)val;
 }
 
-// TODO: clean this mess up, also
-// FIXME:
-void runEmulator(Emulator *emu) {
+bool runEmulator(Emulator *emu) {
 #ifdef DEBUG
   if (debugState.stepping) {
     printf("(h)elp -> ");
     char in = getchar();
+    getc(stdin);
 
     switch (in) {
     case 'h':
-      printf("(s)tep (r)egisters (m)emory (b)reak (q)uit (a)allinfo\n");
-      return;
+      printf("(s)tep (r)egisters (m)emory (b)reak (q)uit\n");
+      return true;
     case 's':
       break;
     case 'r':
       for (u8 i = 0; i < 0x10; i++) {
         printf("V%d: 0x%X\n", i, emu->registers[i]);
       }
-      return;
+      return true;
     case 'm':
       u16 startAddr = getStdinAddr();
       if (startAddr == ram_size + 1)
-        return;
+        return true;
       for (int i = 0; i < 40; i++) {
         if (i % 10 == 0) {
-          printf("\n0x%04X|\t", emu->pc + i + startAddr);
+          printf("\n0x%04X|\t", i + startAddr);
         }
 
-        printf("%02X ", emu->ram[emu->pc + i + startAddr]);
+        printf("%02X ", emu->ram[i + startAddr]);
       }
       printf("\n");
-      return;
+      return true;
     case 'b':
       u16 b = getStdinAddr();
       if (b == ram_size + 1)
-        return;
+        return true;
       debugState.breakAddr = b;
       debugState.stepping = false;
       break;
     case 'q':
-      // TODO: quit the application
-      break;
+      return false;
     default:
-      return;
+      return true;
     }
   } else if (emu->pc >= debugState.breakAddr) {
     debugState.stepping = true;
   }
 #endif
   step(emu);
+  return true;
 }
