@@ -45,9 +45,11 @@ static Uint32 updateTimer(Uint32 interval, void *emuPtr) {
   emu->delayTimer--;
   emu->soundTimer--;
 
+#ifdef DEBUG
   if (emu->soundTimer > 0) {
     playSound(&beep);
   }
+#endif
 
   return interval;
 }
@@ -86,7 +88,9 @@ int initEmulator(Emulator *emu) {
 
   emu->sdlTimer = SDL_AddTimer(1000 / 60, updateTimer, (void *)emu);
 
+#ifdef DEBUG
   loadWAV("beep.wav", &beep);
+#endif
 
   srand(time(NULL));
 
@@ -118,7 +122,7 @@ bool loadROM(Emulator *emu, const char *romPath) {
   u64 romSize = ftell(romd);
 
   if (romSize > ram_size) {
-    fprintf(stderr, "WARNING: ROM size exceeds ram size of %d", ram_size);
+    fprintf(stderr, "ROM size exceeds ram size of %d\n", ram_size);
     fclose(romd);
     return false;
   }

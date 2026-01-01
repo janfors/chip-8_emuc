@@ -69,6 +69,8 @@ int main(int argc, char **argv) {
       }
     }
 
+    if (!running)
+      break;
     running = runEmulator(&emu);
 
     drawFromDisplay(renderer, emu.display);
